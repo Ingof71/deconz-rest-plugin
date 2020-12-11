@@ -1266,6 +1266,58 @@ int DeRestPluginPrivate::setLightState(const ApiRequest &req, ApiResponse &rsp)
             //     Event e(RLights, RStateY, task.lightNode->id(), item);
             //     enqueueEvent(e);
             // }
+            
+            
+             quint16 hue = hasHue ? targetHue : taskRef.lightNode->item(RStateHue)->toNumber();
+             quint8 sat = hasSat ? targetSat : taskRef.lightNode->item(RStateSat)->toNumber();
+             double r, g, b;
+             double x, y;
+             double h = (hue * 360.0) / 65535.0;
+             double s = sat / 254.0;
+             double v = 1.0;
+            
+             Hsv2Rgb(&r, &g, &b, h, s, v);
+             Rgb2xy(&x, &y, r, g, b);
+            
+             if (x < 0) { x = 0; }
+             else if (x > 1) { x = 1; }
+             if (y < 0) { y = 0; }
+             else if (y > 1) { y = 1; }
+
+             //correction for color yellow and Ikea ColorBulb 
+             if (req.mode == ApiModeEcho && 
+                hue == 10923)
+             {
+                //real yellow
+                x = 0.5068;
+                y = 0.4715;
+             } 
+            
+             addTaskSetXyColor(task, x, y);
+
+             x *= 65535.0;
+             y *= 65535.0;
+             if (x > 65279) { x = 65279; }
+             else if (x < 1) { x = 1; }
+             if (y > 65279) { y = 65279; }
+             else if (y < 1) { y = 1; }
+            
+             ResourceItem *item = taskRef.lightNode->item(RStateX);
+             if (item && item->toNumber() != static_cast<quint16>(x))
+             {
+                 item->setValue(static_cast<quint16>(x));
+                 Event e(RLights, RStateX, task.lightNode->id(), item);
+                 enqueueEvent(e);
+             }
+             item = taskRef.lightNode->item(RStateY);
+             if (item && item->toNumber() != static_cast<quint16>(y))
+             {
+                 item->setValue(static_cast<quint16>(y));
+                 Event e(RLights, RStateY, task.lightNode->id(), item);
+                 enqueueEvent(e);
+             }
+            }
+            
             // End FIXME
 
             if (hasHue)
